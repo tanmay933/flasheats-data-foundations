@@ -208,6 +208,27 @@ The JSON report contains the KPI results as well as data-quality context, exclus
 
 ---
 
+## Rerun and Failure Behaviour
+
+The pipeline is safe to rerun from the repository root:
+
+```bash
+python3 run_pipeline.py
+```
+
+Each run reads the raw inputs under `data/raw/` and regenerates:
+
+```text
+outputs/metrics_report.json
+outputs/pipeline.log
+```
+
+Raw input files are not modified by the pipeline.
+
+If ingestion returns no data, transformation returns no data, or metric calculation produces no result, the pipeline stops with an error instead of producing an incomplete final output.
+
+Unexpected pipeline failures are logged with exception details in `outputs/pipeline.log`.
+
 # Run Individual Stages
 
 Each stage can also be run independently:
