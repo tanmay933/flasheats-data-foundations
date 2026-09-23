@@ -1,0 +1,157 @@
+{
+  "metrics": {
+    "on_time_delivery_rate": {
+      "value": 36.31,
+      "unit": "percent",
+      "numerator": 114,
+      "denominator": 314,
+      "valid_record_count": 314,
+      "exclusions": {
+        "completed_orders_excluded_unavailable_outcome": 26,
+        "non_completed_orders_excluded": 60
+      },
+      "knowledge_status": {
+        "known": "Directly calculated from delivery_outcome on completed orders with a usable on_time/late classification.",
+        "unknown": "26 completed order(s) have no usable delivery_outcome (missing/invalid delivered_at or promised_by) and are excluded from both numerator and denominator, not counted as on-time or late.",
+        "assumption": "Inherits transform.py's rule that delivery_outcome is only 'on_time'/'late' when both delivered_at and promised_by are present and valid.",
+        "limitation": "Cancelled and failed orders are excluded from this rate entirely; see the failure/cancellation rate metric for those."
+      }
+    },
+    "average_delivery_time": {
+      "value": 46.5,
+      "unit": "minutes",
+      "valid_record_count": 314,
+      "exclusions": {
+        "completed_orders_missing_this_value": 26
+      },
+      "components": {
+        "average_kitchen_time_minutes": {
+          "value": 17.12,
+          "unit": "minutes",
+          "valid_record_count": 327,
+          "exclusions": {
+            "completed_orders_missing_this_value": 13
+          }
+        },
+        "average_courier_time_minutes": {
+          "value": 19.77,
+          "unit": "minutes",
+          "valid_record_count": 289,
+          "exclusions": {
+            "completed_orders_missing_this_value": 51
+          }
+        },
+        "average_assignment_lag_minutes": {
+          "value": 25.54,
+          "unit": "minutes",
+          "valid_record_count": 339,
+          "exclusions": {
+            "completed_orders_missing_this_value": 1
+          }
+        }
+      },
+      "knowledge_status": {
+        "known": "Directly averaged from total_delivery_time_minutes / kitchen_time_minutes / courier_time_minutes / assignment_lag_minutes on completed orders with a valid value.",
+        "unknown": "Orders missing the relevant source timestamp(s) (e.g. no restaurant POS row, no delivered event) contribute no value to that specific average; counts are reported per component above.",
+        "assumption": "Restaurant POS timestamps were treated as IST and converted to UTC before these durations were computed (see transform.py assumptions).",
+        "limitation": "Each component average is computed only over the orders where that specific leg's data was available -- the four averages are not necessarily computed over the same set of orders."
+      }
+    },
+    "delay_attribution": {
+      "denominator": 200,
+      "valid_record_count": 200,
+      "breakdown": {
+        "kitchen_delay": {
+          "count": 0,
+          "percentage": 0.0,
+          "unit": "percent"
+        },
+        "courier_delay": {
+          "count": 1,
+          "percentage": 0.5,
+          "unit": "percent"
+        },
+        "assignment_delay": {
+          "count": 133,
+          "percentage": 66.5,
+          "unit": "percent"
+        },
+        "mixed/unclear": {
+          "count": 66,
+          "percentage": 33.0,
+          "unit": "percent"
+        }
+      },
+      "exclusions": {
+        "late_orders_without_usable_attribution": 0
+      },
+      "knowledge_status": {
+        "known": "Directly tallied from transform.py's delay_attribution field on orders with delivery_outcome == 'late'.",
+        "unknown": "0 late order(s) had no computable delay_attribution (missing component durations) and are excluded from this breakdown.",
+        "assumption": "Uses transform.py's threshold rule: a leg is named as the cause only if its duration exceeds its own normal baseline; zero or multiple legs exceeding baseline is reported as 'mixed/unclear'.",
+        "limitation": "This is a simple threshold-based attribution, not a statistical or causal analysis -- it does not account for legs with partially missing data or interacting delays."
+      }
+    },
+    "failure_cancellation_rate": {
+      "value": 15.0,
+      "unit": "percent",
+      "numerator": 60,
+      "cancelled_count": 32,
+      "failed_count": 28,
+      "denominator": 400,
+      "valid_record_count": 400,
+      "exclusions": {},
+      "knowledge_status": {
+        "known": "Directly calculated from order_status across all unique (deduplicated) orders in the transformed dataset.",
+        "unknown": "None -- order_status is a required field and present for every order.",
+        "assumption": "Denominator is the deduplicated order count from transform.py (exact duplicate Orders DB rows already removed).",
+        "limitation": "Does not distinguish cancellation reasons (before vs after restaurant acceptance) or failure stage (before vs after pickup) -- both are collapsed into a single failure/cancellation rate here."
+      }
+    },
+    "late_delivery_complaint_rate": {
+      "value": 9.41,
+      "unit": "percent (linked late_delivery tickets per completed order)",
+      "numerator": 32,
+      "denominator": 340,
+      "valid_record_count": 340,
+      "completed_orders_with_late_delivery_ticket": 32,
+      "late_orders_with_late_delivery_ticket": 30,
+      "exclusions": {
+        "note": "Only tickets successfully linked to a known order_id are counted (see transform.py metadata for unlinked_tickets); null/orphaned tickets are excluded."
+      },
+      "knowledge_status": {
+        "known": "Directly counted from late_delivery_ticket_count on completed orders, and cross-tabulated against delivery_outcome == 'late'.",
+        "unknown": "Ticket counts for orders not present in the Orders DB (orphaned/null order_id tickets) are not reflected here; see transformation metadata for their totals.",
+        "assumption": "A ticket is only linked if its order_id parsed as an integer and matched a real, known order_id (transform.py rule).",
+        "limitation": "A late_delivery ticket does not prove the delivery was actually late (and vice versa) -- this metric reports the observed relationship in the data only, not a validated causal or ground-truth link."
+      }
+    }
+  },
+  "data_quality_context": {
+    "total_orders_in_scope": 400,
+    "duplicates_removed_upstream": 8,
+    "unlinked_courier_events": 5,
+    "unlinked_restaurant_rows": 0,
+    "unlinked_tickets": 20,
+    "assumptions_inherited_from_transformation": [
+      "Restaurant POS timestamps (HH:MM:SS) carry no date or timezone; the order date is taken from the source filename (<restaurant>_<YYYY-MM-DD>.csv) and the time is assumed to be IST (UTC+5:30). All timestamps in the output are converted to UTC-aware ISO strings for consistent calculation.",
+      "Duplicate Orders DB rows (exact re-insert, same order_id) are deduplicated by order_id, keeping the first occurrence encountered; the count removed is reported in metadata, not hidden.",
+      "Courier order_ref values that do not match the canonical 'ORD-<order_id>' pattern are never force-matched to an order by heuristic; they are left unlinked and counted in metadata.",
+      "Restaurant POS order_id values are normalized by parsing a plain integer or stripping a leading 'FE' vendor prefix (drifted-schema restaurants); anything else is left unlinked and counted.",
+      "Duration metrics (assignment/kitchen/courier/total) are only calculated when both endpoint timestamps are present and chronologically valid (end timestamp not before start timestamp); otherwise the metric is left null rather than guessed.",
+      "delivery_outcome is 'on_time' or 'late' only when order_status is 'completed' and both delivered_at and promised_by are present and delay_minutes could be computed; orders missing that data are marked 'unavailable' rather than assumed on-time or late.",
+      "delay_attribution uses a simple threshold rule: a leg is named as the cause if its duration exceeds its normal baseline (kitchen > 20m, courier > 22m, assignment > 8m); zero or more than one leg exceeding its baseline is reported as 'mixed/unclear'.",
+      "Support ticket counts on each order only include tickets whose order_id parses to a real, known order_id; null and orphaned tickets are excluded from order-level counts but their totals are preserved in transformation metadata."
+    ],
+    "known_data_quality_issues_from_validation": null
+  },
+  "kpi_summary": {
+    "business_question": "How reliable is FlashEats delivery, and where are delays coming from?",
+    "on_time_delivery_rate_pct": 36.31,
+    "on_time_delivery_rate_basis": "114 / 314 completed orders with a usable outcome",
+    "average_total_delivery_time_minutes": 46.5,
+    "top_delay_cause": "assignment_delay",
+    "failure_cancellation_rate_pct": 15.0,
+    "late_delivery_complaint_rate_pct": 9.41
+  }
+}
