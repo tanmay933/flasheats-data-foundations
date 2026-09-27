@@ -1,0 +1,17 @@
+{
+  "definitions": [
+    {
+      "name": "any_delay_positive",
+      "description": "Late when actual delivery is more than 0 minutes after promised ETA; denominator is delivered rows with both timestamps present."
+    },
+    {
+      "name": "delay_over_10_minutes",
+      "description": "Late when actual delivery is more than 10 minutes after promised ETA; denominator is delivered rows with both timestamps present."
+    },
+    {
+      "name": "historical_delivered_non_null",
+      "description": "Historical-style calculation using delivered rows with non-null promised ETA and actual delivery timestamps; late means positive delay."
+    }
+  ],
+  "ownership": "The KPI/business owner must approve the published definition and denominator before leadership reporting."
+}
